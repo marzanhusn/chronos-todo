@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chronos — Time-Travel To-Do</title>
+  <title>Chronos To-Do</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,13 +14,8 @@
       <div class="subtitle">▸ TIME-TRAVEL TO-DO ◂</div>
     </header>
 
-    <div class="search-row">
-      <input id="searchInput" placeholder="🔍 Search tasks...">
-    </div>
-
     <div class="input-row">
       <input id="taskInput" placeholder="Enter a new task...">
-      <input id="titleInput" placeholder="Short title (optional)">
       <select id="eraSelect">
         <option value="today">Today</option>
         <option value="tomorrow">Tomorrow</option>
@@ -36,26 +31,10 @@
     <ul id="taskList"></ul>
 
     <div class="stats-bar">
-      <div class="stat-item">
-        <span class="stat-val" id="statStreak">0</span>
-        <span class="stat-label">DAY STREAK</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-val" id="statTotal">0</span>
-        <span class="stat-label">TOTAL</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-val" id="statDone">0</span>
-        <span class="stat-label">DONE</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-val" id="statPending">0</span>
-        <span class="stat-label">PENDING</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-val" id="statPct">0%</span>
-        <span class="stat-label">PROGRESS</span>
-      </div>
+      <div><span class="stat-val" id="statTotal">0</span><label>TOTAL</label></div>
+      <div><span class="stat-val" id="statDone">0</span><label>DONE</label></div>
+      <div><span class="stat-val" id="statPending">0</span><label>PENDING</label></div>
+      <div><span class="stat-val" id="statPct">0%</span><label>PROGRESS</label></div>
     </div>
   </div>
 
@@ -72,7 +51,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="app.js"></script>
 
 </body>
