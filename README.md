@@ -1,4 +1,4 @@
-# chronos-todo
+# Chronos-todo
 This is unique to do app for daily life usage
 
 A timeline themed to-do app that organizes tasks by era and keeps you motivated.
