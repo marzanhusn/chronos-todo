@@ -7,8 +7,13 @@ const ERAS = {
 
 let tasks = JSON.parse(localStorage.getItem('chronos')) || [];
 let activeEra = null;
+let searchQuery = '';
 
+const body = document.body;
+const themeBtn = document.getElementById('themeBtn');
 const input = document.getElementById('taskInput');
+const titleInput = document.getElementById('titleInput');
+const searchInput = document.getElementById('searchInput');
 const eraSelect = document.getElementById('eraSelect');
 const addBtn = document.getElementById('addBtn');
 const timeline = document.getElementById('timeline');
@@ -24,12 +29,42 @@ function save() {
   localStorage.setItem('chronos', JSON.stringify(tasks));
 }
 
+function applyTheme(theme) {
+  body.setAttribute('data-theme', theme);
+  themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('theme', theme);
+}
+
+function getCountdown(eraKey) {
+  const now = new Date();
+  const target = new Date();
+
+  if (eraKey === 'today') target.setHours(23, 59, 59, 999);
+  else if (eraKey === 'tomorrow') {
+    target.setDate(target.getDate() + 1);
+    target.setHours(23, 59, 59, 999);
+  } else if (eraKey === 'week') {
+    target.setDate(target.getDate() + (7 - target.getDay()));
+    target.setHours(23, 59, 59, 999);
+  } else return null;
+
+  const diff = target - now;
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(hours / 24);
+
+  if (days >= 1) return `${days}d left`;
+  if (hours >= 1) return `${hours}h left`;
+  return 'soon';
+}
+
 function addTask() {
   const text = input.value.trim();
+  const title = titleInput.value.trim();
   if (!text) return alert('Please type a task!');
 
-  tasks.push({ id: Date.now(), text, era: eraSelect.value, done: false });
+  tasks.push({ id: Date.now(), text, title, era: eraSelect.value, done: false });
   input.value = '';
+  titleInput.value = '';
   save();
   render();
 }
@@ -49,6 +84,15 @@ function deleteTask(id) {
   if (activeEra) openModal(activeEra);
 }
 
+function getVisibleTasks() {
+  if (!searchQuery) return tasks;
+  const q = searchQuery.toLowerCase();
+  return tasks.filter(t =>
+    t.text.toLowerCase().includes(q) ||
+    (t.title && t.title.toLowerCase().includes(q))
+  );
+}
+
 function render() {
   timeline.innerHTML = Object.keys(ERAS).map(key => {
     const era = ERAS[key];
@@ -63,20 +107,27 @@ function render() {
     `;
   }).join('');
 
-  taskList.innerHTML = tasks.length
-    ? tasks.slice().reverse().map(t => {
+  const visible = getVisibleTasks();
+
+  taskList.innerHTML = visible.length
+    ? visible.slice().reverse().map(t => {
         const era = ERAS[t.era];
+        const countdown = getCountdown(t.era);
 
         return `
           <li class="task ${t.done ? 'done' : ''}">
             <input type="checkbox" class="check" ${t.done ? 'checked' : ''} data-toggle="${t.id}">
-            <span class="text">${t.text}</span>
+            <div class="task-body">
+              ${t.title ? `<span class="task-title">${t.title}</span>` : ''}
+              <span class="text">${t.text}</span>
+            </div>
+            ${countdown ? `<span class="countdown ${countdown.includes('d') ? '' : 'safe'}">⏱ ${countdown}</span>` : ''}
             <span class="era-tag" style="color:${era.color};background:${era.color}20">${era.icon} ${era.name}</span>
             <button class="del" data-delete="${t.id}">✕</button>
           </li>
         `;
       }).join('')
-    : '<li class="empty">No tasks yet. Add one above!</li>';
+    : `<li class="empty">${searchQuery ? 'No tasks match your search.' : 'No tasks yet. Add one above!'}</li>`;
 
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
@@ -102,7 +153,10 @@ function openModal(eraKey) {
     ? list.slice().reverse().map(t => `
         <li class="task ${t.done ? 'done' : ''}">
           <input type="checkbox" class="check" ${t.done ? 'checked' : ''} data-toggle="${t.id}">
-          <span class="text">${t.text}</span>
+          <div class="task-body">
+            ${t.title ? `<span class="task-title">${t.title}</span>` : ''}
+            <span class="text">${t.text}</span>
+          </div>
           <button class="del" data-delete="${t.id}">✕</button>
         </li>
       `).join('')
@@ -116,6 +170,11 @@ function closeModal() {
   activeEra = null;
 }
 
+themeBtn.addEventListener('click', () => {
+  const current = body.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
 timeline.addEventListener('click', e => {
   const card = e.target.closest('.era-card');
   if (card) openModal(card.dataset.era);
@@ -124,7 +183,6 @@ timeline.addEventListener('click', e => {
 taskList.addEventListener('click', e => {
   const toggleId = e.target.dataset.toggle;
   const deleteId = e.target.dataset.delete;
-
   if (toggleId) toggle(Number(toggleId));
   if (deleteId) deleteTask(Number(deleteId));
 });
@@ -132,7 +190,6 @@ taskList.addEventListener('click', e => {
 modalList.addEventListener('click', e => {
   const toggleId = e.target.dataset.toggle;
   const deleteId = e.target.dataset.delete;
-
   if (toggleId) toggle(Number(toggleId));
   if (deleteId) deleteTask(Number(deleteId));
 });
@@ -145,12 +202,24 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
+searchInput.addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  render();
+});
+
 addBtn.addEventListener('click', addTask);
 
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter') addTask();
 });
 
+titleInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
 closeBtn.addEventListener('click', closeModal);
+
+const savedTheme = localStorage.getItem('theme') || 'light';
+applyTheme(savedTheme);
 
 render();
