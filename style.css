@@ -90,18 +90,19 @@ h1 {
 }
 
 .theme-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
   background: var(--card-alt);
   border: 1px solid var(--border-strong);
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  line-height: 1;
   transition: 0.25s;
 }
 
