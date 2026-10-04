@@ -31,7 +31,9 @@ function save() {
 
 function applyTheme(theme) {
   body.setAttribute('data-theme', theme);
-  themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  if (themeBtn) {
+    themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
   localStorage.setItem('theme', theme);
 }
 
@@ -170,10 +172,12 @@ function closeModal() {
   activeEra = null;
 }
 
-themeBtn.addEventListener('click', () => {
-  const current = body.getAttribute('data-theme');
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-});
+if (themeBtn) {
+  themeBtn.addEventListener('click', () => {
+    const current = body.getAttribute('data-theme');
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  });
+}
 
 timeline.addEventListener('click', e => {
   const card = e.target.closest('.era-card');
