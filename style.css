@@ -60,10 +60,8 @@ body {
   transition: background 0.3s, border 0.3s;
 }
 
-.header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+header {
+  text-align: center;
   margin-bottom: 20px;
 }
 
@@ -85,13 +83,24 @@ h1 {
   margin-top: 4px;
 }
 
+.theme-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
 .theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--card-alt);
   border: 1px solid var(--border-strong);
   width: 42px;
   height: 42px;
   border-radius: 50%;
   font-size: 18px;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
   transition: 0.25s;
 }
