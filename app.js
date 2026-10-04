@@ -313,3 +313,77 @@ function openModal(eraKey) {
           <button class="del" data-delete="${t.id}">✕</button>
         </li>
       `).join('')
+    : '<li class="empty">No tasks in this timeline.</li>';
+
+  modalBg.classList.add('show');
+}
+
+function closeModal() {
+  modalBg.classList.remove('show');
+  activeEra = null;
+}
+
+themeBtn.addEventListener('click', () => {
+  const current = body.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+soundBtn.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('soundEnabled', soundEnabled);
+  applySound();
+  showToast(soundEnabled ? '🔔 Sound on' : '🔕 Sound off', 'info');
+});
+
+timeline.addEventListener('click', e => {
+  const card = e.target.closest('.era-card');
+  if (card) openModal(card.dataset.era);
+});
+
+taskList.addEventListener('click', e => {
+  const toggleId = e.target.dataset.toggle;
+  const deleteId = e.target.dataset.delete;
+  if (toggleId) toggle(Number(toggleId));
+  if (deleteId) deleteTask(Number(deleteId));
+});
+
+modalList.addEventListener('click', e => {
+  const toggleId = e.target.dataset.toggle;
+  const deleteId = e.target.dataset.delete;
+  if (toggleId) toggle(Number(toggleId));
+  if (deleteId) deleteTask(Number(deleteId));
+});
+
+modalBg.addEventListener('click', e => {
+  if (e.target === modalBg) closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+searchInput.addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  render();
+});
+
+addBtn.addEventListener('click', addTask);
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+titleInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+closeBtn.addEventListener('click', closeModal);
+
+const savedTheme = localStorage.getItem('theme') || 'light';
+applyTheme(savedTheme);
+applySound();
+
+if (!lastActive) updateStreak();
+
+render();
+runOpenReminder();
