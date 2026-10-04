@@ -1,397 +1,252 @@
 const ERAS = {
-  today:    { name: 'Today',     icon: '⚡', color: '#667eea' },
-  tomorrow: { name: 'Tomorrow',  icon: '🌅', color: '#ed8936' },
-  week:     { name: 'This Week', icon: '📆', color: '#48bb78' },
-  someday:  { name: 'Someday',   icon: '🌌', color: '#9f7aea' }
+  today:    { name:'Today',     icon:'⚡', color:'#667eea' },
+  tomorrow: { name:'Tomorrow',  icon:'🌅', color:'#ed8936' },
+  week:     { name:'This Week', icon:'📆', color:'#48bb78' },
+  someday:  { name:'Someday',   icon:'🌌', color:'#9f7aea' }
 };
 
+const $ = id => document.getElementById(id);
 let tasks = JSON.parse(localStorage.getItem('chronos')) || [];
 let streak = Number(localStorage.getItem('streak')) || 0;
 let lastActive = localStorage.getItem('lastActive') || '';
-let activeEra = null;
-let searchQuery = '';
+let activeEra = null, searchQuery = '';
 let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+let reminderInterval = null, alarmInterval = null;
 
-const body = document.body;
-const themeBtn = document.getElementById('themeBtn');
-const soundBtn = document.getElementById('soundBtn');
-const input = document.getElementById('taskInput');
-const titleInput = document.getElementById('titleInput');
-const timeInput = document.getElementById('timeInput');
-const searchInput = document.getElementById('searchInput');
-const eraSelect = document.getElementById('eraSelect');
-const addBtn = document.getElementById('addBtn');
-const timeline = document.getElementById('timeline');
-const taskList = document.getElementById('taskList');
-const modalBg = document.getElementById('modalBg');
-const modal = document.getElementById('modal');
-const modalTitle = document.getElementById('modalTitle');
-const modalSub = document.getElementById('modalSub');
-const modalList = document.getElementById('modalList');
-const closeBtn = document.getElementById('closeBtn');
-const toast = document.getElementById('toast');
+const body = document.body, themeBtn = $('themeBtn'), soundBtn = $('soundBtn');
+const input = $('taskInput'), titleInput = $('titleInput'), timeInput = $('timeInput');
+const searchInput = $('searchInput'), eraSelect = $('eraSelect'), addBtn = $('addBtn');
+const timeline = $('timeline'), taskList = $('taskList'), modalBg = $('modalBg');
+const modal = $('modal'), modalTitle = $('modalTitle'), modalSub = $('modalSub');
+const modalList = $('modalList'), closeBtn = $('closeBtn'), toast = $('toast');
 
-let reminderInterval = null;
-let alarmInterval = null;
-
-function save() {
+const save = () => {
   localStorage.setItem('chronos', JSON.stringify(tasks));
   localStorage.setItem('streak', streak);
   localStorage.setItem('lastActive', lastActive);
-}
+};
 
-function applyTheme(theme) {
-  body.setAttribute('data-theme', theme);
-  themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
-  localStorage.setItem('theme', theme);
-}
+const applyTheme = t => {
+  body.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('theme', t);
+};
 
-function applySound() {
+const applySound = () => {
   soundBtn.textContent = soundEnabled ? '🔔' : '🔕';
   soundBtn.classList.toggle('muted', !soundEnabled);
-}
+};
 
-function updateStreak() {
+const updateStreak = () => {
   const today = new Date().toDateString();
   if (lastActive === today) return;
-
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  streak = lastActive === yesterday.toDateString() ? streak + 1 : 1;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  streak = lastActive === y.toDateString() ? streak + 1 : 1;
   lastActive = today;
   save();
-}
+};
 
-function playDing() {
+const tone = (freq, dur, type = 'sine', vol = 0.15, delay = 0) => {
   if (!soundEnabled) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.2);
-  } catch (e) {}
-}
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = type; osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.start(t); osc.stop(t + dur);
+  } catch {}
+};
 
-function playTikTok() {
-  if (!soundEnabled) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const tick = (time, freq) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, time);
-      gain.gain.setValueAtTime(0.08, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
-      osc.start(time);
-      osc.stop(time + 0.08);
-    };
-    const now = ctx.currentTime;
-    tick(now, 1200);
-    tick(now + 0.25, 900);
-    tick(now + 0.5, 1200);
-  } catch (e) {}
-}
+const playDing   = () => tone(880, 0.2);
+const playAlarm  = () => [0, 0.18, 0.36, 0.54].forEach(d => tone(1100, 0.15, 'triangle', 0.18, d));
+const playTikTok = () => [1200, 900, 1200].forEach((f, i) => tone(f, 0.08, 'square', 0.08, i * 0.25));
 
-function playAlarm() {
-  if (!soundEnabled) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const now = ctx.currentTime;
-
-    for (let i = 0; i < 4; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.type = 'triangle';
-      const t = now + i * 0.18;
-      osc.frequency.setValueAtTime(880, t);
-      osc.frequency.setValueAtTime(1100, t + 0.08);
-
-      gain.gain.setValueAtTime(0.18, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-
-      osc.start(t);
-      osc.stop(t + 0.15);
-    }
-  } catch (e) {}
-}
-
-function celebrate() {
+const celebrate = () => {
   if (typeof confetti === 'function') {
-    confetti({
-      particleCount: 140,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: ['#8b5cf6', '#a78bfa', '#ec4899', '#f59e0b']
-    });
+    confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 },
+      colors: ['#8b5cf6','#a78bfa','#ec4899','#f59e0b'] });
   }
-}
+};
 
-function showToast(message, type) {
-  toast.textContent = message;
+const showToast = (msg, type) => {
+  toast.textContent = msg;
   toast.classList.remove('warn', 'info');
-  if (type === 'warn') toast.classList.add('warn');
-  if (type === 'info') toast.classList.add('info');
+  if (type) toast.classList.add(type);
   toast.classList.add('show');
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => toast.classList.remove('show'), 2600);
-}
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 2600);
+};
 
-function getCountdown(eraKey) {
+const getCountdown = k => {
+  const now = new Date(), t = new Date();
+  if (k === 'today') t.setHours(23,59,59,999);
+  else if (k === 'tomorrow') { t.setDate(t.getDate()+1); t.setHours(23,59,59,999); }
+  else if (k === 'week') { t.setDate(t.getDate()+(7-t.getDay())); t.setHours(23,59,59,999); }
+  else return null;
+  const h = Math.floor((t - now) / 3600000);
+  const d = Math.floor(h / 24);
+  return d >= 1 ? `${d}d left` : h >= 1 ? `${h}h left` : 'soon';
+};
+
+const pendingCount = () => tasks.filter(t => !t.done).length;
+
+const checkAlarms = () => {
   const now = new Date();
-  const target = new Date();
-
-  if (eraKey === 'today') target.setHours(23, 59, 59, 999);
-  else if (eraKey === 'tomorrow') {
-    target.setDate(target.getDate() + 1);
-    target.setHours(23, 59, 59, 999);
-  } else if (eraKey === 'week') {
-    target.setDate(target.getDate() + (7 - target.getDay()));
-    target.setHours(23, 59, 59, 999);
-  } else return null;
-
-  const diff = target - now;
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(hours / 24);
-
-  if (days >= 1) return `${days}d left`;
-  if (hours >= 1) return `${hours}h left`;
-  return 'soon';
-}
-
-function getPendingCount() {
-  return tasks.filter(t => !t.done).length;
-}
-
-function checkAlarms() {
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-  tasks.forEach(task => {
-    if (
-      !task.done &&
-      task.time &&
-      !task.alarmFired &&
-      task.time === currentTime
-    ) {
-      task.alarmFired = true;
-      save();
-      playAlarm();
-      showToast(`⏰ ${task.title || task.text}`, 'warn');
+  const cur = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  tasks.forEach(t => {
+    if (!t.done && t.time && !t.alarmFired && t.time === cur) {
+      t.alarmFired = true;
+      save(); playAlarm();
+      showToast(`⏰ ${t.title || t.text}`, 'warn');
       render();
     }
   });
-}
+};
 
-function startAlarmLoop() {
-  if (alarmInterval) return;
-  alarmInterval = setInterval(checkAlarms, 10000);
-}
+const startAlarmLoop = () => { if (!alarmInterval) alarmInterval = setInterval(checkAlarms, 10000); };
 
-function startReminderLoop() {
-  if (reminderInterval) clearInterval(reminderInterval);
+const startReminderLoop = () => {
+  clearInterval(reminderInterval);
   reminderInterval = setInterval(() => {
-    const pending = getPendingCount();
-    if (pending > 0) {
-      playTikTok();
-      showToast(`⏰ ${pending} task${pending !== 1 ? 's' : ''} still pending`, 'warn');
-    } else {
-      clearInterval(reminderInterval);
-      reminderInterval = null;
-    }
+    const p = pendingCount();
+    if (p > 0) { playTikTok(); showToast(`⏰ ${p} task${p!==1?'s':''} still pending`, 'warn'); }
+    else { clearInterval(reminderInterval); reminderInterval = null; }
   }, 60000);
-}
+};
 
-function runOpenReminder() {
-  const pending = getPendingCount();
-  if (pending > 0) {
-    setTimeout(() => {
-      playTikTok();
-      showToast(`⏰ You have ${pending} pending task${pending !== 1 ? 's' : ''}`, 'warn');
-    }, 800);
+const runOpenReminder = () => {
+  const p = pendingCount();
+  if (p > 0) {
+    setTimeout(() => { playTikTok(); showToast(`⏰ You have ${p} pending task${p!==1?'s':''}`, 'warn'); }, 800);
     startReminderLoop();
   }
-}
+};
 
-function addTask() {
+const addTask = () => {
   const text = input.value.trim();
-  const title = titleInput.value.trim();
-  const time = timeInput.value;
   if (!text) return alert('Please type a task!');
-
   tasks.push({
-    id: Date.now(),
-    text,
-    title,
-    time,
+    id: Date.now(), text,
+    title: titleInput.value.trim(),
+    time: timeInput.value,
     era: eraSelect.value,
-    done: false,
-    alarmFired: false
+    done: false, alarmFired: false
   });
-
-  input.value = '';
-  titleInput.value = '';
-  timeInput.value = '';
-  updateStreak();
-  save();
-  render();
+  input.value = titleInput.value = timeInput.value = '';
+  updateStreak(); save(); render();
   showToast('✓ Task added', 'info');
-
-  if (!reminderInterval && getPendingCount() > 0) startReminderLoop();
+  if (!reminderInterval && pendingCount() > 0) startReminderLoop();
   startAlarmLoop();
-}
+};
 
-function toggle(id) {
+const toggle = id => {
   const task = tasks.find(t => t.id === id);
   task.done = !task.done;
   if (task.done) task.alarmFired = true;
-  save();
-  render();
+  save(); render();
   if (activeEra) openModal(activeEra);
-
-  if (task.done) {
-    const totalDone = tasks.filter(t => t.done).length;
-    const allDone = tasks.length > 0 && totalDone === tasks.length;
-
-    playDing();
-
-    if (allDone) {
+  if (!task.done) return;
+  const doneCount = tasks.filter(t => t.done).length;
+  const allDone = tasks.length > 0 && doneCount === tasks.length;
+  playDing();
+  if (allDone) {
+    celebrate();
+    showToast('🎉 All tasks complete. Legendary.');
+    clearInterval(reminderInterval); reminderInterval = null;
+  } else {
+    const eraTasks = tasks.filter(t => t.era === task.era);
+    if (eraTasks.every(t => t.done)) {
       celebrate();
-      showToast('🎉 All tasks complete. Legendary.');
-      if (reminderInterval) {
-        clearInterval(reminderInterval);
-        reminderInterval = null;
-      }
+      showToast(`🏆 ${ERAS[task.era].name} cleared`);
     } else {
-      const eraTasks = tasks.filter(t => t.era === task.era);
-      const eraDone = eraTasks.every(t => t.done);
-
-      if (eraDone && eraTasks.length > 0) {
-        celebrate();
-        showToast(`🏆 ${ERAS[task.era].name} cleared`);
-      } else {
-        showToast(`✓ ${totalDone} of ${tasks.length} done`);
-      }
+      showToast(`✓ ${doneCount} of ${tasks.length} done`);
     }
   }
-}
+};
 
-function deleteTask(id) {
+const deleteTask = id => {
   tasks = tasks.filter(t => t.id !== id);
-  save();
-  render();
+  save(); render();
   if (activeEra) openModal(activeEra);
-}
+};
 
-function getVisibleTasks() {
+const getVisible = () => {
   if (!searchQuery) return tasks;
   const q = searchQuery.toLowerCase();
-  return tasks.filter(t =>
-    t.text.toLowerCase().includes(q) ||
-    (t.title && t.title.toLowerCase().includes(q))
-  );
-}
+  return tasks.filter(t => t.text.toLowerCase().includes(q) || (t.title && t.title.toLowerCase().includes(q)));
+};
 
-function render() {
-  timeline.innerHTML = Object.keys(ERAS).map(key => {
-    const era = ERAS[key];
-    const list = tasks.filter(t => t.era === key);
-    const allDone = list.length > 0 && list.every(t => t.done);
-
-    return `
-      <div class="era-card ${allDone ? 'complete' : ''}" style="--color:${era.color}" data-era="${key}">
-        <span class="era-icon">${era.icon}</span>
-        <div class="era-name">${era.name.toUpperCase()}</div>
-        <div class="era-count">${list.length} task${list.length !== 1 ? 's' : ''}</div>
-      </div>
-    `;
+const render = () => {
+  timeline.innerHTML = Object.keys(ERAS).map(k => {
+    const era = ERAS[k], list = tasks.filter(t => t.era === k);
+    const done = list.length > 0 && list.every(t => t.done);
+    return `<div class="era-card ${done?'complete':''}" style="--color:${era.color}" data-era="${k}">
+      <span class="era-icon">${era.icon}</span>
+      <div class="era-name">${era.name.toUpperCase()}</div>
+      <div class="era-count">${list.length} task${list.length!==1?'s':''}</div>
+    </div>`;
   }).join('');
 
-  const visible = getVisibleTasks();
-
+  const visible = getVisible();
   taskList.innerHTML = visible.length
     ? visible.slice().reverse().map(t => {
         const era = ERAS[t.era];
-        const countdown = getCountdown(t.era);
-
-        return `
-          <li class="task ${t.done ? 'done' : ''} ${t.alarmFired && !t.done ? 'ringing' : ''}">
-            <input type="checkbox" class="check" ${t.done ? 'checked' : ''} data-toggle="${t.id}">
-            <div class="task-body">
-              ${t.title ? `<span class="task-title">${t.title}</span>` : ''}
-              <span class="text">${t.text}</span>
-            </div>
-            ${t.time ? `<span class="task-time">🕐 ${t.time}</span>` : ''}
-            ${countdown ? `<span class="countdown ${countdown.includes('d') ? '' : 'safe'}">⏱ ${countdown}</span>` : ''}
-            <span class="era-tag" style="color:${era.color};background:${era.color}20">${era.icon} ${era.name}</span>
-            <button class="del" data-delete="${t.id}">✕</button>
-          </li>
-        `;
-      }).join('')
-    : `<li class="empty">${searchQuery ? 'No tasks match your search.' : 'No tasks yet. Add one above!'}</li>`;
-
-  const total = tasks.length;
-  const done = tasks.filter(t => t.done).length;
-  const pending = total - done;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-
-  document.getElementById('statStreak').textContent = streak;
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statDone').textContent = done;
-  document.getElementById('statPending').textContent = pending;
-  document.getElementById('statPct').textContent = pct + '%';
-}
-
-function openModal(eraKey) {
-  activeEra = eraKey;
-  const era = ERAS[eraKey];
-  const list = tasks.filter(t => t.era === eraKey);
-
-  modal.style.setProperty('--color', era.color);
-  modalTitle.textContent = `${era.icon} ${era.name}`;
-  modalSub.textContent = `${list.length} task${list.length !== 1 ? 's' : ''} in this timeline`;
-
-  modalList.innerHTML = list.length
-    ? list.slice().reverse().map(t => `
-        <li class="task ${t.done ? 'done' : ''}">
-          <input type="checkbox" class="check" ${t.done ? 'checked' : ''} data-toggle="${t.id}">
+        const cd = getCountdown(t.era);
+        return `<li class="task ${t.done?'done':''} ${t.alarmFired&&!t.done?'ringing':''}">
+          <input type="checkbox" class="check" ${t.done?'checked':''} data-toggle="${t.id}">
           <div class="task-body">
             ${t.title ? `<span class="task-title">${t.title}</span>` : ''}
             <span class="text">${t.text}</span>
           </div>
           ${t.time ? `<span class="task-time">🕐 ${t.time}</span>` : ''}
+          ${cd ? `<span class="countdown ${cd.includes('d')?'':'safe'}">⏱ ${cd}</span>` : ''}
+          <span class="era-tag" style="color:${era.color};background:${era.color}20">${era.icon} ${era.name}</span>
           <button class="del" data-delete="${t.id}">✕</button>
-        </li>
-      `).join('')
+        </li>`;
+      }).join('')
+    : `<li class="empty">${searchQuery ? 'No tasks match your search.' : 'No tasks yet. Add one above!'}</li>`;
+
+  const total = tasks.length, done = tasks.filter(t => t.done).length;
+  $('statStreak').textContent = streak;
+  $('statTotal').textContent = total;
+  $('statDone').textContent = done;
+  $('statPending').textContent = total - done;
+  $('statPct').textContent = total ? Math.round(done/total*100) + '%' : '0%';
+};
+
+const openModal = k => {
+  activeEra = k;
+  const era = ERAS[k], list = tasks.filter(t => t.era === k);
+  modal.style.setProperty('--color', era.color);
+  modalTitle.textContent = `${era.icon} ${era.name}`;
+  modalSub.textContent = `${list.length} task${list.length!==1?'s':''} in this timeline`;
+  modalList.innerHTML = list.length
+    ? list.slice().reverse().map(t => `
+      <li class="task ${t.done?'done':''}">
+        <input type="checkbox" class="check" ${t.done?'checked':''} data-toggle="${t.id}">
+        <div class="task-body">
+          ${t.title ? `<span class="task-title">${t.title}</span>` : ''}
+          <span class="text">${t.text}</span>
+        </div>
+        ${t.time ? `<span class="task-time">🕐 ${t.time}</span>` : ''}
+        <button class="del" data-delete="${t.id}">✕</button>
+      </li>`).join('')
     : '<li class="empty">No tasks in this timeline.</li>';
-
   modalBg.classList.add('show');
-}
+};
 
-function closeModal() {
-  modalBg.classList.remove('show');
-  activeEra = null;
-}
+const closeModal = () => { modalBg.classList.remove('show'); activeEra = null; };
 
-themeBtn.addEventListener('click', () => {
-  const current = body.getAttribute('data-theme');
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-});
+const handleClick = e => {
+  const tid = e.target.dataset.toggle, did = e.target.dataset.delete;
+  if (tid) toggle(Number(tid));
+  if (did) deleteTask(Number(did));
+};
 
+themeBtn.addEventListener('click', () => applyTheme(body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
 soundBtn.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem('soundEnabled', soundEnabled);
@@ -400,55 +255,22 @@ soundBtn.addEventListener('click', () => {
 });
 
 timeline.addEventListener('click', e => {
-  const card = e.target.closest('.era-card');
-  if (card) openModal(card.dataset.era);
+  const c = e.target.closest('.era-card');
+  if (c) openModal(c.dataset.era);
 });
-
-taskList.addEventListener('click', e => {
-  const toggleId = e.target.dataset.toggle;
-  const deleteId = e.target.dataset.delete;
-  if (toggleId) toggle(Number(toggleId));
-  if (deleteId) deleteTask(Number(deleteId));
-});
-
-modalList.addEventListener('click', e => {
-  const toggleId = e.target.dataset.toggle;
-  const deleteId = e.target.dataset.delete;
-  if (toggleId) toggle(Number(toggleId));
-  if (deleteId) deleteTask(Number(deleteId));
-});
-
-modalBg.addEventListener('click', e => {
-  if (e.target === modalBg) closeModal();
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-searchInput.addEventListener('input', e => {
-  searchQuery = e.target.value.trim();
-  render();
-});
-
+taskList.addEventListener('click', handleClick);
+modalList.addEventListener('click', handleClick);
+modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+searchInput.addEventListener('input', e => { searchQuery = e.target.value.trim(); render(); });
 addBtn.addEventListener('click', addTask);
-
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
-
-titleInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
-
+input.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
 closeBtn.addEventListener('click', closeModal);
 
-const savedTheme = localStorage.getItem('theme') || 'light';
-applyTheme(savedTheme);
+applyTheme(localStorage.getItem('theme') || 'light');
 applySound();
-
 if (!lastActive) updateStreak();
-
 render();
 runOpenReminder();
 startAlarmLoop();
