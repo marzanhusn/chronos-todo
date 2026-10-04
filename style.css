@@ -201,13 +201,20 @@ button {
   min-width: 130px;
 }
 
+#timeInput {
+  min-width: 120px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 #taskInput::placeholder,
 #titleInput::placeholder {
   color: var(--text-muted);
 }
 
 #taskInput:focus,
-#titleInput:focus {
+#titleInput:focus,
+#timeInput:focus {
   border-color: var(--primary);
   background: var(--card);
   box-shadow: 0 0 0 4px var(--primary-light);
@@ -353,6 +360,20 @@ ul {
   color: var(--text-muted);
 }
 
+.task.ringing {
+  animation: ringPulse 1s infinite;
+  border-left-color: var(--warn);
+}
+
+@keyframes ringPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
 .task-body {
   flex: 1;
   min-width: 140px;
@@ -374,6 +395,16 @@ ul {
   font-size: 14px;
   color: var(--text);
   overflow-wrap: anywhere;
+}
+
+.task-time {
+  font-size: 10px;
+  padding: 5px 12px;
+  border-radius: 12px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .era-tag {
@@ -612,7 +643,7 @@ ul {
   .icon-btn { width: 40px; height: 40px; font-size: 18px; }
 
   .input-row { flex-direction: column; gap: 10px; }
-  #addBtn, select, #taskInput, #titleInput { width: 100%; }
+  #addBtn, select, #taskInput, #titleInput, #timeInput { width: 100%; }
 
   .timeline { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
   .era-card { padding: 14px 10px 26px; }
@@ -623,6 +654,7 @@ ul {
   .task { padding: 12px 14px; gap: 10px; }
   .task-body { min-width: 100%; flex-basis: 100%; order: 2; }
   .check { order: 1; }
+  .task-time { order: 3; font-size: 9px; padding: 4px 10px; }
   .era-tag { order: 3; font-size: 9px; padding: 4px 10px; }
   .countdown { order: 3; font-size: 9px; padding: 4px 10px; }
   .del { order: 4; width: 30px; height: 30px; }
