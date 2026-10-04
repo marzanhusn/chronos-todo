@@ -26,6 +26,7 @@ const modalTitle = document.getElementById('modalTitle');
 const modalSub = document.getElementById('modalSub');
 const modalList = document.getElementById('modalList');
 const closeBtn = document.getElementById('closeBtn');
+const toast = document.getElementById('toast');
 
 function save() {
   localStorage.setItem('chronos', JSON.stringify(tasks));
@@ -62,6 +63,34 @@ function celebrate() {
   }
 }
 
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+function playDing() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  } catch (e) {}
+}
+
 function getCountdown(eraKey) {
   const now = new Date();
   const target = new Date();
@@ -95,6 +124,7 @@ function addTask() {
   updateStreak();
   save();
   render();
+  showToast('Task added');
 }
 
 function toggle(id) {
@@ -104,8 +134,27 @@ function toggle(id) {
   render();
   if (activeEra) openModal(activeEra);
 
-  const allDone = tasks.length > 0 && tasks.every(t => t.done);
-  if (allDone && task.done) celebrate();
+  if (task.done) {
+    const totalDone = tasks.filter(t => t.done).length;
+    const allDone = tasks.length > 0 && totalDone === tasks.length;
+
+    playDing();
+
+    if (allDone) {
+      celebrate();
+      showToast('All tasks complete. Legendary.');
+    } else {
+      const eraTasks = tasks.filter(t => t.era === task.era);
+      const eraDone = eraTasks.every(t => t.done);
+
+      if (eraDone && eraTasks.length > 0) {
+        celebrate();
+        showToast(`All tasks in ${ERAS[task.era].name} complete`);
+      } else {
+        showToast(`Nice. ${totalDone} of ${tasks.length} done`);
+      }
+    }
+  }
 }
 
 function deleteTask(id) {
