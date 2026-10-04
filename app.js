@@ -10,9 +10,11 @@ let streak = Number(localStorage.getItem('streak')) || 0;
 let lastActive = localStorage.getItem('lastActive') || '';
 let activeEra = null;
 let searchQuery = '';
+let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
 
 const body = document.body;
 const themeBtn = document.getElementById('themeBtn');
+const soundBtn = document.getElementById('soundBtn');
 const input = document.getElementById('taskInput');
 const titleInput = document.getElementById('titleInput');
 const searchInput = document.getElementById('searchInput');
@@ -28,6 +30,8 @@ const modalList = document.getElementById('modalList');
 const closeBtn = document.getElementById('closeBtn');
 const toast = document.getElementById('toast');
 
+let reminderInterval = null;
+
 function save() {
   localStorage.setItem('chronos', JSON.stringify(tasks));
   localStorage.setItem('streak', streak);
@@ -38,6 +42,11 @@ function applyTheme(theme) {
   body.setAttribute('data-theme', theme);
   themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
   localStorage.setItem('theme', theme);
+}
+
+function applySound() {
+  soundBtn.textContent = soundEnabled ? '🔔' : '🔕';
+  soundBtn.classList.toggle('muted', !soundEnabled);
 }
 
 function updateStreak() {
@@ -52,6 +61,49 @@ function updateStreak() {
   save();
 }
 
+function playDing() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  } catch (e) {}
+}
+
+function playTikTok() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const tick = (time, freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.08, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+      osc.start(time);
+      osc.stop(time + 0.08);
+    };
+
+    const now = ctx.currentTime;
+    tick(now, 1200);
+    tick(now + 0.25, 900);
+    tick(now + 0.5, 1200);
+  } catch (e) {}
+}
+
 function celebrate() {
   if (typeof confetti === 'function') {
     confetti({
@@ -63,32 +115,14 @@ function celebrate() {
   }
 }
 
-function showToast(message) {
+function showToast(message, type) {
   toast.textContent = message;
+  toast.classList.remove('warn', 'info');
+  if (type === 'warn') toast.classList.add('warn');
+  if (type === 'info') toast.classList.add('info');
   toast.classList.add('show');
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
-}
-
-function playDing() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
-
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.2);
-  } catch (e) {}
+  showToast._timer = setTimeout(() => toast.classList.remove('show'), 2600);
 }
 
 function getCountdown(eraKey) {
@@ -113,6 +147,37 @@ function getCountdown(eraKey) {
   return 'soon';
 }
 
+function getPendingCount() {
+  return tasks.filter(t => !t.done).length;
+}
+
+function startReminderLoop() {
+  if (reminderInterval) clearInterval(reminderInterval);
+
+  reminderInterval = setInterval(() => {
+    const pending = getPendingCount();
+    if (pending > 0) {
+      playTikTok();
+      showToast(`⏰ ${pending} task${pending !== 1 ? 's' : ''} still pending`, 'warn');
+    } else {
+      clearInterval(reminderInterval);
+      reminderInterval = null;
+    }
+  }, 60000);
+}
+
+function runOpenReminder() {
+  const pending = getPendingCount();
+
+  if (pending > 0) {
+    setTimeout(() => {
+      playTikTok();
+      showToast(`⏰ You have ${pending} pending task${pending !== 1 ? 's' : ''}`, 'warn');
+    }, 800);
+    startReminderLoop();
+  }
+}
+
 function addTask() {
   const text = input.value.trim();
   const title = titleInput.value.trim();
@@ -124,7 +189,9 @@ function addTask() {
   updateStreak();
   save();
   render();
-  showToast('Task added');
+  showToast('✓ Task added', 'info');
+
+  if (!reminderInterval && getPendingCount() > 0) startReminderLoop();
 }
 
 function toggle(id) {
@@ -142,16 +209,20 @@ function toggle(id) {
 
     if (allDone) {
       celebrate();
-      showToast('All tasks complete. Legendary.');
+      showToast('🎉 All tasks complete. Legendary.');
+      if (reminderInterval) {
+        clearInterval(reminderInterval);
+        reminderInterval = null;
+      }
     } else {
       const eraTasks = tasks.filter(t => t.era === task.era);
       const eraDone = eraTasks.every(t => t.done);
 
       if (eraDone && eraTasks.length > 0) {
         celebrate();
-        showToast(`All tasks in ${ERAS[task.era].name} complete`);
+        showToast(`🏆 ${ERAS[task.era].name} cleared`);
       } else {
-        showToast(`Nice. ${totalDone} of ${tasks.length} done`);
+        showToast(`✓ ${totalDone} of ${tasks.length} done`);
       }
     }
   }
@@ -242,68 +313,3 @@ function openModal(eraKey) {
           <button class="del" data-delete="${t.id}">✕</button>
         </li>
       `).join('')
-    : '<li class="empty">No tasks in this timeline.</li>';
-
-  modalBg.classList.add('show');
-}
-
-function closeModal() {
-  modalBg.classList.remove('show');
-  activeEra = null;
-}
-
-themeBtn.addEventListener('click', () => {
-  const current = body.getAttribute('data-theme');
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-});
-
-timeline.addEventListener('click', e => {
-  const card = e.target.closest('.era-card');
-  if (card) openModal(card.dataset.era);
-});
-
-taskList.addEventListener('click', e => {
-  const toggleId = e.target.dataset.toggle;
-  const deleteId = e.target.dataset.delete;
-  if (toggleId) toggle(Number(toggleId));
-  if (deleteId) deleteTask(Number(deleteId));
-});
-
-modalList.addEventListener('click', e => {
-  const toggleId = e.target.dataset.toggle;
-  const deleteId = e.target.dataset.delete;
-  if (toggleId) toggle(Number(toggleId));
-  if (deleteId) deleteTask(Number(deleteId));
-});
-
-modalBg.addEventListener('click', e => {
-  if (e.target === modalBg) closeModal();
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-searchInput.addEventListener('input', e => {
-  searchQuery = e.target.value.trim();
-  render();
-});
-
-addBtn.addEventListener('click', addTask);
-
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
-
-titleInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
-
-closeBtn.addEventListener('click', closeModal);
-
-const savedTheme = localStorage.getItem('theme') || 'light';
-applyTheme(savedTheme);
-
-if (!lastActive) updateStreak();
-
-render();
