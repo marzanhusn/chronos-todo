@@ -6,6 +6,8 @@ const ERAS = {
 };
 
 let tasks = JSON.parse(localStorage.getItem('chronos')) || [];
+let streak = Number(localStorage.getItem('streak')) || 0;
+let lastActive = localStorage.getItem('lastActive') || '';
 let activeEra = null;
 let searchQuery = '';
 
@@ -27,14 +29,37 @@ const closeBtn = document.getElementById('closeBtn');
 
 function save() {
   localStorage.setItem('chronos', JSON.stringify(tasks));
+  localStorage.setItem('streak', streak);
+  localStorage.setItem('lastActive', lastActive);
 }
 
 function applyTheme(theme) {
   body.setAttribute('data-theme', theme);
-  if (themeBtn) {
-    themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
-  }
+  themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
   localStorage.setItem('theme', theme);
+}
+
+function updateStreak() {
+  const today = new Date().toDateString();
+  if (lastActive === today) return;
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  streak = lastActive === yesterday.toDateString() ? streak + 1 : 1;
+  lastActive = today;
+  save();
+}
+
+function celebrate() {
+  if (typeof confetti === 'function') {
+    confetti({
+      particleCount: 140,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: ['#8b5cf6', '#a78bfa', '#ec4899', '#f59e0b']
+    });
+  }
 }
 
 function getCountdown(eraKey) {
@@ -67,6 +92,7 @@ function addTask() {
   tasks.push({ id: Date.now(), text, title, era: eraSelect.value, done: false });
   input.value = '';
   titleInput.value = '';
+  updateStreak();
   save();
   render();
 }
@@ -77,6 +103,9 @@ function toggle(id) {
   save();
   render();
   if (activeEra) openModal(activeEra);
+
+  const allDone = tasks.length > 0 && tasks.every(t => t.done);
+  if (allDone && task.done) celebrate();
 }
 
 function deleteTask(id) {
@@ -98,13 +127,14 @@ function getVisibleTasks() {
 function render() {
   timeline.innerHTML = Object.keys(ERAS).map(key => {
     const era = ERAS[key];
-    const count = tasks.filter(t => t.era === key).length;
+    const list = tasks.filter(t => t.era === key);
+    const allDone = list.length > 0 && list.every(t => t.done);
 
     return `
-      <div class="era-card" style="--color:${era.color}" data-era="${key}">
+      <div class="era-card ${allDone ? 'complete' : ''}" style="--color:${era.color}" data-era="${key}">
         <span class="era-icon">${era.icon}</span>
         <div class="era-name">${era.name.toUpperCase()}</div>
-        <div class="era-count">${count} task${count !== 1 ? 's' : ''}</div>
+        <div class="era-count">${list.length} task${list.length !== 1 ? 's' : ''}</div>
       </div>
     `;
   }).join('');
@@ -136,6 +166,7 @@ function render() {
   const pending = total - done;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  document.getElementById('statStreak').textContent = streak;
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statDone').textContent = done;
   document.getElementById('statPending').textContent = pending;
@@ -172,12 +203,10 @@ function closeModal() {
   activeEra = null;
 }
 
-if (themeBtn) {
-  themeBtn.addEventListener('click', () => {
-    const current = body.getAttribute('data-theme');
-    applyTheme(current === 'dark' ? 'light' : 'dark');
-  });
-}
+themeBtn.addEventListener('click', () => {
+  const current = body.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
 
 timeline.addEventListener('click', e => {
   const card = e.target.closest('.era-card');
@@ -225,5 +254,7 @@ closeBtn.addEventListener('click', closeModal);
 
 const savedTheme = localStorage.getItem('theme') || 'light';
 applyTheme(savedTheme);
+
+if (!lastActive) updateStreak();
 
 render();
