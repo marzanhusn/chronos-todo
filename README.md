@@ -1,6 +1,6 @@
 # Chronos
 
-> **A time-travel themed to-do app that turns your daily tasks into a journey across today, tomorrow, this week, and someday.**
+> **A time based themed to-do app that turns your daily tasks into a journey across today, tomorrow, this week, and someday.**
 
 ![Chronos](https://img.shields.io/badge/version-1.0-8b5cf6?style=flat-square)
 ![HTML](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
